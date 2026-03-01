@@ -1,0 +1,360 @@
+title: "F1 Live"
+views:
+
+  # ─── Vy 1: Race Live ──────────────────────────────────────────────────────
+  - title: "Race Live"
+    path: race-live
+    icon: mdi:racing-helmet
+    cards:
+
+      # Session-status + flagga
+      - type: horizontal-stack
+        cards:
+          - type: entity
+            entity: sensor.f1_session_status
+            name: "Session"
+            icon: mdi:racing-helmet
+
+          - type: entity
+            entity: sensor.f1_flag
+            name: "Flagga"
+            attribute: display
+            icon: mdi:flag
+
+          - type: entity
+            entity: sensor.f1_lap
+            name: "Varv"
+            icon: mdi:counter
+
+      # Tre förarkort – dynamiska (visar vald förare från inställningar)
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+
+          # Slot 1
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.f1_d1_name') }}"
+            secondary: |
+              P{{ states('sensor.f1_d1_position') }}
+              {{ states('sensor.f1_d1_gap') }}
+            icon: mdi:podium
+            badge_icon: mdi:tire
+            badge_color: >
+              {% set c = state_attr('sensor.f1_d1_compound', 'compound') %}
+              {% if c == 'SOFT' %}red
+              {% elif c == 'MEDIUM' %}yellow
+              {% elif c == 'HARD' %}white
+              {% elif c == 'INTERMEDIATE' %}green
+              {% elif c == 'WET' %}blue
+              {% else %}grey{% endif %}
+
+          # Slot 2
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.f1_d2_name') }}"
+            secondary: |
+              P{{ states('sensor.f1_d2_position') }}
+              {{ states('sensor.f1_d2_gap') }}
+            icon: mdi:podium
+            badge_icon: mdi:tire
+            badge_color: >
+              {% set c = state_attr('sensor.f1_d2_compound', 'compound') %}
+              {% if c == 'SOFT' %}red
+              {% elif c == 'MEDIUM' %}yellow
+              {% elif c == 'HARD' %}white
+              {% elif c == 'INTERMEDIATE' %}green
+              {% elif c == 'WET' %}blue
+              {% else %}grey{% endif %}
+
+          # Slot 3
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.f1_d3_name') }}"
+            secondary: |
+              P{{ states('sensor.f1_d3_position') }}
+              {{ states('sensor.f1_d3_gap') }}
+            icon: mdi:podium
+            badge_icon: mdi:tire
+            badge_color: >
+              {% set c = state_attr('sensor.f1_d3_compound', 'compound') %}
+              {% if c == 'SOFT' %}red
+              {% elif c == 'MEDIUM' %}yellow
+              {% elif c == 'HARD' %}white
+              {% elif c == 'INTERMEDIATE' %}green
+              {% elif c == 'WET' %}blue
+              {% else %}grey{% endif %}
+
+      # Detaljkort – Slot 1
+      - type: entities
+        title: "Förare 1"
+        entities:
+          - entity: sensor.f1_d1_name
+            name: "Förare"
+          - entity: sensor.f1_d1_position
+            name: "Position"
+          - entity: sensor.f1_d1_gap
+            name: "Gap to leader"
+          - entity: sensor.f1_d1_interval
+            name: "Interval"
+          - entity: sensor.f1_d1_compound
+            name: "Däck"
+          - entity: sensor.f1_d1_tyre_age
+            name: "Däckålder"
+
+      # Detaljkort – Slot 2
+      - type: entities
+        title: "Förare 2"
+        entities:
+          - entity: sensor.f1_d2_name
+            name: "Förare"
+          - entity: sensor.f1_d2_position
+            name: "Position"
+          - entity: sensor.f1_d2_gap
+            name: "Gap to leader"
+          - entity: sensor.f1_d2_interval
+            name: "Interval"
+          - entity: sensor.f1_d2_compound
+            name: "Däck"
+          - entity: sensor.f1_d2_tyre_age
+            name: "Däckålder"
+
+      # Detaljkort – Slot 3
+      - type: entities
+        title: "Förare 3"
+        entities:
+          - entity: sensor.f1_d3_name
+            name: "Förare"
+          - entity: sensor.f1_d3_position
+            name: "Position"
+          - entity: sensor.f1_d3_gap
+            name: "Gap to leader"
+          - entity: sensor.f1_d3_interval
+            name: "Interval"
+          - entity: sensor.f1_d3_compound
+            name: "Däck"
+          - entity: sensor.f1_d3_tyre_age
+            name: "Däckålder"
+
+      # Race Control historik
+      - type: conditional
+        conditions:
+          - entity: sensor.f1_session_status
+            state_not: "inactive"
+        card:
+          type: markdown
+          title: "📻 Race Control"
+          content: >
+            {% set hist = state_attr('sensor.f1_flag', 'history') %}
+            {% if hist %}
+              {% for h in hist %}
+                **{{ h.time }}**{% if h.lap %} (varv {{ h.lap }}){% endif %} {{ h.flag }} {{ h.message }}
+              {% endfor %}
+            {% else %}
+              Inga händelser ännu.
+            {% endif %}
+
+      # Uppdatera-knapp
+      - type: button
+        name: "Uppdatera nu"
+        icon: mdi:refresh
+        tap_action:
+          action: call-service
+          service: script.f1_refresh_btn
+
+  # ─── Vy 2: Race Weekend ───────────────────────────────────────────────────
+  - title: "Race Weekend"
+    path: race-weekend
+    icon: mdi:calendar-star
+    cards:
+
+      - type: entities
+        title: "Nästa session"
+        entities:
+          - entity: sensor.f1_next_session
+            name: "Om"
+          - type: attribute
+            entity: sensor.f1_next_session
+            attribute: session_name
+            name: "Session"
+            icon: mdi:flag-checkered
+          - type: attribute
+            entity: sensor.f1_next_session
+            attribute: circuit
+            name: "Bana"
+            icon: mdi:map-marker
+          - type: attribute
+            entity: sensor.f1_next_session
+            attribute: country
+            name: "Land"
+            icon: mdi:earth
+          - type: attribute
+            entity: sensor.f1_next_session
+            attribute: date_start
+            name: "Starttid (UTC)"
+            icon: mdi:clock-outline
+
+      - type: entity
+        entity: sensor.f1_session_status
+        name: "Aktuell session"
+
+  # ─── Vy 3: Mästerskap ─────────────────────────────────────────────────────
+  - title: "Mästerskap"
+    path: masterskap
+    icon: mdi:trophy
+    cards:
+
+      - type: horizontal-stack
+        cards:
+          - type: entity
+            entity: sensor.f1_driver_standings
+            name: "Förare"
+            icon: mdi:trophy
+            attribute: summary
+
+          - type: entity
+            entity: sensor.f1_constructor_standings
+            name: "Konstruktör"
+            icon: mdi:wrench-outline
+            attribute: summary
+
+      - type: markdown
+        title: "🏆 Förarmästerskap"
+        content: >
+          {% set data = states('sensor.f1_driver_standings') %}
+          {% if data not in ('–', 'Hämtar...', 'unavailable', 'unknown') %}
+            {% for entry in data.split('|') %}
+              **{{ entry }}**
+            {% endfor %}
+          {% else %}
+            Säsongen har inte startat än.
+          {% endif %}
+
+      - type: markdown
+        title: "🏗 Konstruktörsmästerskap"
+        content: >
+          {% set data = states('sensor.f1_constructor_standings') %}
+          {% if data not in ('–', 'Hämtar...', 'unavailable', 'unknown') %}
+            {% for entry in data.split('|') %}
+              **{{ entry }}**
+            {% endfor %}
+          {% else %}
+            Säsongen har inte startat än.
+          {% endif %}
+
+      - type: entity
+        entity: sensor.f1_race_control_msg
+        name: "Senaste Race Control"
+        icon: mdi:message-alert-outline
+
+      - type: button
+        name: "Uppdatera standings"
+        icon: mdi:refresh
+        tap_action:
+          action: call-service
+          service: script.f1_refresh_btn
+
+  # ─── Vy 5: AI ─────────────────────────────────────────────────────────────
+  - title: "AI"
+    path: ai
+    icon: mdi:robot
+    cards:
+
+      - type: entities
+        title: "AI-inställningar"
+        entities:
+          - entity: input_boolean.f1_ai_commentary
+            name: "Live-kommentar (röd/SC/CHEQUERED)"
+          - entity: input_boolean.f1_ai_recap
+            name: "Session-referat (auto efter lopp)"
+
+      - type: markdown
+        title: "🎙️ AI-kommentator"
+        content: >
+          {% set ts = state_attr('sensor.f1_ai_commentary', 'timestamp') %}
+          {% set ev = state_attr('sensor.f1_ai_commentary', 'event') %}
+          {% if ev %}_{{ ev }}_{% endif %}
+
+          **{{ states('sensor.f1_ai_commentary') }}**
+
+          {% if ts %}{{ ts[11:16] }} UTC{% endif %}
+
+      - type: markdown
+        title: "📰 Senaste session-referat"
+        content: >
+          {% set sess = state_attr('sensor.f1_ai_recap', 'session') %}
+          {% set ts = state_attr('sensor.f1_ai_recap', 'timestamp') %}
+          {% if sess %}### {{ sess }}{% if ts %} ({{ ts[:10] }}){% endif %}{% endif %}
+
+          {{ states('sensor.f1_ai_recap') }}
+
+      - type: entity
+        entity: sensor.f1_live_grid
+        name: "Live Grid (antal förare)"
+        icon: mdi:format-list-numbered
+
+      - type: button
+        name: "Uppdatera + testa AI"
+        icon: mdi:refresh
+        tap_action:
+          action: call-service
+          service: script.f1_refresh_btn
+
+  # ─── Vy 6: Inställningar ──────────────────────────────────────────────────
+  - title: "Inställningar"
+    path: installningar
+    icon: mdi:cog
+    cards:
+
+      # ── Välj förare (ange nummer 1-99, 0 = inaktiv slot) ──────────────────
+      - type: entities
+        title: "Följda förare"
+        entities:
+          - entity: input_number.f1_followed_1
+            name: "Förare 1"
+          - entity: sensor.f1_d1_name
+            name: "→ Namn"
+          - entity: input_number.f1_followed_2
+            name: "Förare 2"
+          - entity: sensor.f1_d2_name
+            name: "→ Namn"
+          - entity: input_number.f1_followed_3
+            name: "Förare 3"
+          - entity: sensor.f1_d3_name
+            name: "→ Namn"
+
+      - type: markdown
+        content: >
+          **Så här byter du förare:**
+          Ändra numret i fältet ovan till valfri förares startnummer.
+          Sätt 0 för att inaktivera en slot.
+
+          **Tillgängliga förare** hittas i `sensor.f1_available_drivers`
+          (uppdateras automatiskt när en session startar).
+
+          Vanliga nummer 2025/26: VER=1, NOR=4, HAM=44, RUS=63,
+          LEC=16, SAI=55, ALO=14, STR=18, PIA=81, NOR=4
+
+      - type: entity
+        entity: sensor.f1_available_drivers
+        name: "Tillgängliga förare (aktuell session)"
+
+      - type: entities
+        title: "Notiser"
+        entities:
+          - entity: input_boolean.f1_notify_flags
+            name: "Gul/grön flagga"
+          - entity: input_boolean.f1_notify_pitstops
+            name: "Pitstops"
+
+      - type: markdown
+        content: >
+          ### Data uppdateras
+          - **Aktiv session**: var 30:e sekund
+          - **Mellan sessioner**: var 5:e minut
+
+          ### Notiser (alltid, oavsett inställningar)
+          - 🔴 Röd flagga
+          - 🚗 Safety Car / VSC
+          - 🏁 Chequered flag (race klart)
+
+          ### API
+          openf1.org – gratis, ingen nyckel krävs

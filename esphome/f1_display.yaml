@@ -1,0 +1,486 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# F1 Live Display – ESP32-2432S028 (CYD)
+# ─────────────────────────────────────────────────────────────────────────────
+# Sida 0 – Race Live: flaggfärg, session, 3 förarkort (pos/gap/däck)
+# Sida 1 – Standings: förare + konstruktörsmästerskap
+#
+# Touch: byter sida.
+# Auto: växlar till Race när session startar, Standings när inactive.
+# ─────────────────────────────────────────────────────────────────────────────
+
+esphome:
+  name: f1-display
+  friendly_name: "F1 Display"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "F1Display Fallback"
+    password: "f1display123"
+
+captive_portal:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+logger:
+  level: WARN
+
+# ── SPI (gemensam buss för display + touch) ──────────────────────────────────
+spi:
+  clk_pin: GPIO14
+  mosi_pin: GPIO13
+  miso_pin: GPIO12
+
+# ── Bakgrundsljus ─────────────────────────────────────────────────────────────
+output:
+  - platform: ledc
+    pin: GPIO21
+    id: backlight_pwm
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    id: backlight
+    restore_mode: ALWAYS_ON
+
+# ── Sida-state ────────────────────────────────────────────────────────────────
+globals:
+  - id: current_page
+    type: int
+    restore_value: no
+    initial_value: '1'   # 0=Race, 1=Standings, 2=Live Grid
+
+# ── Touchscreen (XPT2046) ─────────────────────────────────────────────────────
+touchscreen:
+  - platform: xpt2046
+    id: touch
+    cs_pin: GPIO33
+    interrupt_pin: GPIO36
+    update_interval: 50ms
+    threshold: 400
+    calibration:
+      x_min: 200
+      x_max: 3800
+      y_min: 240
+      y_max: 3860
+    transform:
+      swap_xy: true
+      mirror_x: true
+    on_touch:
+      - then:
+          - lambda: |-
+              id(current_page) = (id(current_page) + 1) % 3;  // 0→1→2→0
+
+# ── Fonter ────────────────────────────────────────────────────────────────────
+font:
+  - file: "gfonts://Roboto"
+    id: font_xs
+    size: 12
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,:;-+/|()[]%°><!_&"
+
+  - file: "gfonts://Roboto"
+    id: font_sm
+    size: 15
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,:;-+/|()[]%°><!_&"
+
+  - file: "gfonts://Roboto"
+    id: font_md
+    size: 19
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,:;-+/|()[]%°><!_&"
+
+  - file: "gfonts://Roboto@700"
+    id: font_lg
+    size: 26
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,:;-+/|()[]%°><!_P"
+
+  - file: "gfonts://Roboto@700"
+    id: font_header
+    size: 20
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,:;-+/|()[]%°><!_&"
+
+# ── HA-sensorer ───────────────────────────────────────────────────────────────
+text_sensor:
+  - platform: homeassistant
+    id: f1_session
+    entity_id: sensor.f1_session_status
+    on_value:
+      then:
+        - lambda: |-
+            if (x != "inactive") {
+              id(current_page) = 0;   // Race-sida
+            } else {
+              id(current_page) = 1;   // Standings-sida
+            }
+
+  - platform: homeassistant
+    id: f1_flag
+    entity_id: sensor.f1_flag
+
+  - platform: homeassistant
+    id: f1_lap
+    entity_id: sensor.f1_lap
+
+  - platform: homeassistant
+    id: f1_next_sess
+    entity_id: sensor.f1_next_session
+
+  - platform: homeassistant
+    id: f1_rc_msg
+    entity_id: sensor.f1_race_control_msg
+
+  # Slot 1 (konfigurerbar)
+  - platform: homeassistant
+    id: f1_d1_name
+    entity_id: sensor.f1_d1_name
+  - platform: homeassistant
+    id: f1_d1_pos
+    entity_id: sensor.f1_d1_position
+  - platform: homeassistant
+    id: f1_d1_gap
+    entity_id: sensor.f1_d1_gap
+  - platform: homeassistant
+    id: f1_d1_cmp
+    entity_id: sensor.f1_d1_compound
+  - platform: homeassistant
+    id: f1_d1_age
+    entity_id: sensor.f1_d1_tyre_age
+
+  # Slot 2 (konfigurerbar)
+  - platform: homeassistant
+    id: f1_d2_name
+    entity_id: sensor.f1_d2_name
+  - platform: homeassistant
+    id: f1_d2_pos
+    entity_id: sensor.f1_d2_position
+  - platform: homeassistant
+    id: f1_d2_gap
+    entity_id: sensor.f1_d2_gap
+  - platform: homeassistant
+    id: f1_d2_cmp
+    entity_id: sensor.f1_d2_compound
+  - platform: homeassistant
+    id: f1_d2_age
+    entity_id: sensor.f1_d2_tyre_age
+
+  # Slot 3 (konfigurerbar)
+  - platform: homeassistant
+    id: f1_d3_name
+    entity_id: sensor.f1_d3_name
+  - platform: homeassistant
+    id: f1_d3_pos
+    entity_id: sensor.f1_d3_position
+  - platform: homeassistant
+    id: f1_d3_gap
+    entity_id: sensor.f1_d3_gap
+  - platform: homeassistant
+    id: f1_d3_cmp
+    entity_id: sensor.f1_d3_compound
+  - platform: homeassistant
+    id: f1_d3_age
+    entity_id: sensor.f1_d3_tyre_age
+
+  # Standings
+  - platform: homeassistant
+    id: f1_drv_standings
+    entity_id: sensor.f1_driver_standings
+  - platform: homeassistant
+    id: f1_con_standings
+    entity_id: sensor.f1_constructor_standings
+
+  # Live Grid
+  - platform: homeassistant
+    id: f1_grid_display
+    entity_id: sensor.f1_grid_display
+
+  # AI-kommentator
+  - platform: homeassistant
+    id: f1_ai_commentary
+    entity_id: sensor.f1_ai_commentary
+
+# ── Display (ILI9341, landscape 320x240) ──────────────────────────────────────
+display:
+  - platform: ili9xxx
+    model: ILI9341
+    cs_pin: GPIO15
+    dc_pin: GPIO2
+    reset_pin: GPIO4
+    rotation: 90
+    update_interval: 1s
+    lambda: |-
+
+      // ── Hjälp-lambdas ─────────────────────────────────────────────────────
+
+      // Flaggfärg → bakgrundsfärg för header
+      auto flag_color = [&]() -> Color {
+        std::string f = id(f1_flag).state;
+        if (f == "RED")              return Color(160, 0, 0);
+        if (f == "YELLOW" || f == "DOUBLE YELLOW") return Color(150, 130, 0);
+        if (f == "SAFETY CAR")       return Color(200, 90, 0);
+        if (f == "VIRTUAL SAFETY CAR") return Color(160, 70, 0);
+        if (f == "GREEN")            return Color(0, 120, 0);
+        if (f == "CHEQUERED")        return Color(60, 60, 60);
+        return Color(25, 25, 80);    // Blå default (inactive/no data)
+      };
+
+      // Däcktyp → kort namn
+      auto cmp_name = [](const std::string& c) -> const char* {
+        if (c.find("SOFT") != std::string::npos) return "SOFT";
+        if (c.find("MED")  != std::string::npos) return "MED";
+        if (c.find("HARD") != std::string::npos) return "HARD";
+        if (c.find("INT")  != std::string::npos) return "INT";
+        if (c.find("WET")  != std::string::npos) return "WET";
+        return "-";
+      };
+
+      // Däcktyp → färg
+      auto cmp_color = [](const std::string& c) -> Color {
+        if (c.find("SOFT") != std::string::npos) return Color(220, 30, 30);
+        if (c.find("MED")  != std::string::npos) return Color(220, 210, 0);
+        if (c.find("HARD") != std::string::npos) return Color(210, 210, 210);
+        if (c.find("INT")  != std::string::npos) return Color(30, 200, 30);
+        if (c.find("WET")  != std::string::npos) return Color(30, 100, 220);
+        return Color(120, 120, 120);
+      };
+
+      // Rita pipe-separerade standings-rader (x, y_start, data, max_rader, radhöjd)
+      auto draw_standings = [&](int x, int y0, const std::string& data, int max_lines, int lh) {
+        int start = 0, ln = 0;
+        for (int i = 0; i <= (int)data.size() && ln < max_lines; i++) {
+          if (i == (int)data.size() || data[i] == '|') {
+            if (i > start) {
+              std::string line = data.substr(start, i - start);
+              it.print(x, y0 + ln * lh, id(font_sm), Color(200, 200, 200), line.c_str());
+              ln++;
+            }
+            start = i + 1;
+          }
+        }
+      };
+
+      it.fill(Color(0, 0, 0));  // Svart bakgrund
+
+      // ═══════════════════════════════════════════════════════════════════════
+      if (id(current_page) == 0) {
+      // ── SIDA 0: RACE LIVE ─────────────────────────────────────────────────
+
+        // Header-bar med flaggfärg
+        it.filled_rectangle(0, 0, 320, 28, flag_color());
+
+        std::string sess = id(f1_session).state;
+        std::string lap  = id(f1_lap).state;
+
+        // "F1" vänster
+        it.print(6, 4, id(font_header), Color(255, 220, 0), "F1");
+
+        // Session-typ mitten
+        it.print(160, 4, id(font_header), Color(255, 255, 255), TextAlign::CENTER_LEFT,
+          (sess != "inactive" && sess != "" ? sess.c_str() : "INACTIVE"));
+
+        // Varv höger
+        if (lap != "–" && lap != "" && sess != "inactive") {
+          char lap_buf[20];
+          snprintf(lap_buf, sizeof(lap_buf), "V %s", lap.c_str());
+          it.print(314, 4, id(font_header), Color(200, 200, 200), TextAlign::TOP_RIGHT, lap_buf);
+        } else {
+          it.print(314, 4, id(font_xs), Color(100, 100, 100), TextAlign::TOP_RIGHT,
+            id(f1_next_sess).state.c_str());
+        }
+
+        // Divider
+        it.horizontal_line(0, 30, 320, Color(60, 60, 60));
+
+        // ── Förarkort (3 kolumner, 105px vardera) ────────────────────────────
+        // Kolumn-centrering: col1=52, col2=160, col3=267
+        const int cols[3] = {52, 160, 268};
+
+        // Dynamiska förarenamn från HA-sensorer (uppdateras när användaren byter förare)
+        const char* drv_names[3] = {
+          id(f1_d1_name).state.c_str(),
+          id(f1_d2_name).state.c_str(),
+          id(f1_d3_name).state.c_str()
+        };
+
+        // Hämta alla sensor-strängar
+        const char* pos_arr[3] = {
+          id(f1_d1_pos).state.c_str(),
+          id(f1_d2_pos).state.c_str(),
+          id(f1_d3_pos).state.c_str()
+        };
+        const char* gap_arr[3] = {
+          id(f1_d1_gap).state.c_str(),
+          id(f1_d2_gap).state.c_str(),
+          id(f1_d3_gap).state.c_str()
+        };
+        const std::string cmp_arr[3] = {
+          id(f1_d1_cmp).state,
+          id(f1_d2_cmp).state,
+          id(f1_d3_cmp).state
+        };
+        const char* age_arr[3] = {
+          id(f1_d1_age).state.c_str(),
+          id(f1_d2_age).state.c_str(),
+          id(f1_d3_age).state.c_str()
+        };
+
+        for (int i = 0; i < 3; i++) {
+          int cx = cols[i];
+
+          // Namn (t.ex. "VER")
+          it.print(cx, 36, id(font_md), Color(180, 180, 180), TextAlign::TOP_CENTER, drv_names[i]);
+
+          // Position (stor)
+          char pos_buf[8];
+          const char* pos_raw = pos_arr[i];
+          if (pos_raw[0] != '-' && pos_raw[0] != '\0') {
+            snprintf(pos_buf, sizeof(pos_buf), "P%s", pos_raw);
+          } else {
+            snprintf(pos_buf, sizeof(pos_buf), "–");
+          }
+          it.print(cx, 58, id(font_lg), Color(255, 255, 255), TextAlign::TOP_CENTER, pos_buf);
+
+          // Gap
+          it.print(cx, 88, id(font_xs), Color(160, 200, 160), TextAlign::TOP_CENTER, gap_arr[i]);
+
+          // Däck (färgat namn + ålder)
+          char tyre_buf[16];
+          snprintf(tyre_buf, sizeof(tyre_buf), "%s %sv", cmp_name(cmp_arr[i]), age_arr[i]);
+          it.print(cx, 103, id(font_xs), cmp_color(cmp_arr[i]), TextAlign::TOP_CENTER, tyre_buf);
+        }
+
+        // Kolumndividers
+        it.vertical_line(107, 32, 88, Color(40, 40, 40));
+        it.vertical_line(214, 32, 88, Color(40, 40, 40));
+
+        // Divider
+        it.horizontal_line(0, 122, 320, Color(50, 50, 50));
+
+        // ── Race Control meddelande ───────────────────────────────────────────
+        std::string rc = id(f1_rc_msg).state;
+        if (rc == "" || rc == "–") rc = "Inga RC-meddelanden";
+        // Trunkera till 44 tecken (2 rader om ~22 tecken var)
+        if ((int)rc.size() > 44) {
+          it.print(5, 127, id(font_xs), Color(220, 180, 60), rc.substr(0, 44).c_str());
+        } else {
+          it.print(5, 127, id(font_xs), Color(220, 180, 60), rc.c_str());
+        }
+
+        // Divider
+        it.horizontal_line(0, 147, 320, Color(50, 50, 50));
+
+        // ── Statusrad ─────────────────────────────────────────────────────────
+        it.print(5,   153, id(font_xs), Color(70, 70, 70), "touch: byt vy");
+        it.print(314, 153, id(font_xs), Color(70, 70, 70), TextAlign::TOP_RIGHT, "std/grid >");
+
+      // ═══════════════════════════════════════════════════════════════════════
+      } else {
+      // ── SIDA 1: STANDINGS ─────────────────────────────────────────────────
+
+        // Header-bar (F1-röd vid standings)
+        it.filled_rectangle(0, 0, 320, 28, Color(140, 0, 0));
+        it.print(6,   4, id(font_header), Color(255, 220, 0), "F1 2026");
+        it.print(314, 4, id(font_header), Color(200, 200, 200), TextAlign::TOP_RIGHT,
+          id(f1_next_sess).state.c_str());
+
+        // Divider
+        it.horizontal_line(0, 30, 320, Color(60, 60, 60));
+
+        // Kolumn-rubriker
+        it.print(5,   34, id(font_xs), Color(180, 180, 60), "FORARSTANDINGS");
+        it.print(165, 34, id(font_xs), Color(180, 180, 60), "KONSTRUKTOR");
+
+        // Mittdivider
+        it.vertical_line(158, 32, 120, Color(40, 40, 40));
+
+        // Standings-data (pipe-separerade strängar)
+        std::string drv = id(f1_drv_standings).state;
+        std::string con = id(f1_con_standings).state;
+
+        if (drv == "Hamtar..." || drv == "") drv = "Data hamtas...";
+        if (con == "Hamtar..." || con == "") con = "Data hamtas...";
+
+        draw_standings(5,   52, drv, 5, 19);
+        draw_standings(163, 52, con, 5, 19);
+
+        // Divider
+        it.horizontal_line(0, 152, 320, Color(50, 50, 50));
+
+        // Nästa session info
+        it.print(5,   157, id(font_xs), Color(100, 160, 200),
+          id(f1_next_sess).state.c_str());
+
+        // Statusrad
+        it.print(314, 157, id(font_xs), Color(70, 70, 70), TextAlign::TOP_RIGHT,
+          "touch: race/grid >");
+
+      // ═══════════════════════════════════════════════════════════════════════
+      } else {
+      // ── SIDA 2: LIVE GRID (top 10) ────────────────────────────────────────
+
+        // Header – grön under aktiv session, grå annars
+        Color header2 = (id(f1_session).state != "inactive" && id(f1_session).state != "")
+          ? Color(0, 100, 30)
+          : Color(40, 40, 40);
+        it.filled_rectangle(0, 0, 320, 28, header2);
+        it.print(6,   4, id(font_header), Color(255, 220, 0), "LIVE GRID");
+        it.print(314, 4, id(font_header), Color(200, 200, 200), TextAlign::TOP_RIGHT,
+          id(f1_next_sess).state.c_str());
+
+        // Divider
+        it.horizontal_line(0, 30, 320, Color(60, 60, 60));
+
+        std::string grid_data = id(f1_grid_display).state;
+
+        if (grid_data.empty() || id(f1_session).state == "inactive") {
+          // Ingen aktiv session
+          it.print(160, 90, id(font_md), Color(80, 80, 80), TextAlign::CENTER, "Väntar på race...");
+          it.print(160, 115, id(font_xs), Color(60, 60, 60), TextAlign::CENTER,
+            id(f1_next_sess).state.c_str());
+        } else {
+          // Rita 2 kolumner (5 positioner vardera)
+          // Format: "P.ACR GAP C" t.ex. "1.VER Leader S" | "2.HAM +2.1s M"
+          // Kolumn 0 (x=5): pos 1-5, Kolumn 1 (x=163): pos 6-10
+          int start = 0, idx = 0;
+          for (int i = 0; i <= (int)grid_data.size() && idx < 10; i++) {
+            if (i == (int)grid_data.size() || grid_data[i] == '|') {
+              if (i > start) {
+                std::string line = grid_data.substr(start, i - start);
+                int col = idx / 5;       // 0 = vänster, 1 = höger
+                int row = idx % 5;       // 0-4
+                int gx  = col == 0 ? 5 : 163;
+                int gy  = 36 + row * 19;
+                it.print(gx, gy, id(font_xs), Color(200, 200, 200), line.c_str());
+                idx++;
+              }
+              start = i + 1;
+            }
+          }
+        }
+
+        // Divider
+        it.horizontal_line(0, 134, 320, Color(50, 50, 50));
+        it.vertical_line(158, 32, 100, Color(40, 40, 40));
+
+        // AI-kommentar (liten text längst ned)
+        std::string ai_txt = id(f1_ai_commentary).state;
+        if (!ai_txt.empty() && ai_txt != "-") {
+          // Trunkera till 44 tecken
+          if ((int)ai_txt.size() > 44) ai_txt = ai_txt.substr(0, 44) + "...";
+          it.print(5, 139, id(font_xs), Color(180, 150, 80), ai_txt.c_str());
+        }
+
+        // Statusrad
+        it.print(314, 157, id(font_xs), Color(70, 70, 70), TextAlign::TOP_RIGHT,
+          "touch: race/std >");
+      }

@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# OpenF1 – HA Package
+# Follows: Verstappen #1 · Hamilton #44 · Bottas #77
+# ─────────────────────────────────────────────────────────────────────────────
+
+input_boolean:
+
+  f1_notify_flags:
+    name: "F1 – Notiser: Flaggor (gul, grön)"
+    icon: mdi:flag-triangle
+
+  f1_notify_pitstops:
+    name: "F1 – Notiser: Pitstops"
+    icon: mdi:wrench
+
+  f1_ai_commentary:
+    name: "F1 – AI-kommentator (live)"
+    icon: mdi:microphone
+    initial: true
+
+  f1_ai_recap:
+    name: "F1 – AI-sessionreferat"
+    icon: mdi:newspaper
+    initial: true
+
+
+input_number:
+
+  f1_followed_1:
+    name: "F1 – Förare 1 (nummer)"
+    icon: mdi:racing-helmet
+    min: 0
+    max: 99
+    step: 1
+    initial: 1     # Max Verstappen
+
+  f1_followed_2:
+    name: "F1 – Förare 2 (nummer)"
+    icon: mdi:racing-helmet
+    min: 0
+    max: 99
+    step: 1
+    initial: 44    # Lewis Hamilton
+
+  f1_followed_3:
+    name: "F1 – Förare 3 (nummer)"
+    icon: mdi:racing-helmet
+    min: 0
+    max: 99
+    step: 1
+    initial: 77    # Valtteri Bottas
+    # Sätt till 0 för att inaktivera en slot
+
+
+script:
+
+  f1_refresh_btn:
+    alias: "F1 – Uppdatera nu"
+    icon: mdi:refresh
+    sequence:
+      - service: pyscript.openf1_refresh
