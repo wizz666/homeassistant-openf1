@@ -175,6 +175,8 @@ Displayen visar 3 sidor (tryck för att byta):
 
 Byter automatiskt till race-sidan när en session startar.
 
+**→ Komplett installationsguide: [esphome/README.sv.md](esphome/README.sv.md)**
+
 ## Uppdateringsintervall
 
 | Situation | Intervall |
