@@ -1,6 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # OpenF1 – HA Package
-# Follows: Verstappen #1 · Hamilton #44 · Bottas #77
 # ─────────────────────────────────────────────────────────────────────────────
 
 input_boolean:
@@ -22,6 +21,30 @@ input_boolean:
     name: "F1 – AI-sessionreferat"
     icon: mdi:newspaper
     initial: true
+
+
+input_select:
+
+  f1_ai_provider:
+    name: "F1 – AI-leverantör"
+    icon: mdi:robot
+    options:
+      - auto          # Groq om nyckel finns, annars ha_ai_task
+      - groq          # Groq (gratis, snabb) – kräver API-nyckel nedan
+      - ha_ai_task    # HA:s inbyggda AI (Google AI / Anthropic etc.)
+      - anthropic     # Anthropic Claude direkt – kräver API-nyckel nedan
+      - openai        # OpenAI GPT-4o-mini – kräver API-nyckel nedan
+    initial: auto
+
+
+input_text:
+
+  f1_ai_api_key:
+    name: "F1 – AI API-nyckel"
+    icon: mdi:key
+    mode: password
+    max: 255
+    initial: ""
 
 
 input_number:

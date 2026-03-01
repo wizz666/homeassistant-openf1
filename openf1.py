@@ -791,55 +791,167 @@ def _build_live_grid():
 
 # ─── AI-kommentator ────────────────────────────────────────────────────────────
 
+def _ai_key_ok(k):
+    """Returnerar True om k är en giltig API-nyckel (ej tom/placeholder)."""
+    return bool(k) and k not in ("unknown", "none", "unavailable", "")
+
+
+async def _call_groq(api_key, prompt, max_tokens):
+    """Anropar Groq (llama-3.3-70b-versatile). Returnerar sträng eller None."""
+    import aiohttp
+    try:
+        payload = {
+            "model": "llama-3.3-70b-versatile",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0.85,
+        }
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    return data["choices"][0]["message"]["content"].strip()
+                log.warning(f"[OpenF1-AI] Groq HTTP {resp.status}")
+    except Exception as e:
+        log.warning(f"[OpenF1-AI] Groq-fel: {e}")
+    return None
+
+
+async def _call_anthropic(api_key, prompt, max_tokens):
+    """Anropar Anthropic Claude (claude-haiku-4-5). Returnerar sträng eller None."""
+    import aiohttp
+    try:
+        payload = {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(
+                "https://api.anthropic.com/v1/messages",
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    return data["content"][0]["text"].strip()
+                log.warning(f"[OpenF1-AI] Anthropic HTTP {resp.status}")
+    except Exception as e:
+        log.warning(f"[OpenF1-AI] Anthropic-fel: {e}")
+    return None
+
+
+async def _call_openai(api_key, prompt, max_tokens):
+    """Anropar OpenAI (gpt-4o-mini). Returnerar sträng eller None."""
+    import aiohttp
+    try:
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0.85,
+        }
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    return data["choices"][0]["message"]["content"].strip()
+                log.warning(f"[OpenF1-AI] OpenAI HTTP {resp.status}")
+    except Exception as e:
+        log.warning(f"[OpenF1-AI] OpenAI-fel: {e}")
+    return None
+
+
+async def _call_ha_ai_task(prompt):
+    """Anropar ha_ai_task (Google AI / Anthropic etc. beroende på HA-konfiguration)."""
+    try:
+        result = await ai_task.generate_data(
+            task_name="f1_commentary",
+            instructions=prompt,
+        )
+        if isinstance(result, str):
+            return result.strip() or None
+        if isinstance(result, dict):
+            return result.get("text") or result.get("result") or None
+    except Exception as e:
+        log.warning(f"[OpenF1-AI] ha_ai_task-fel: {e}")
+    return None
+
+
 async def _ask_ai(prompt, max_tokens=200):
-    """Groq (llama-3.3-70b) → ha_ai_task fallback. Returnerar textsträng eller None."""
+    """Routing-funktion: skickar prompt till rätt AI-leverantör.
+
+    Leverantör väljs via input_select.f1_ai_provider:
+      auto       – Groq om nyckel finns, annars ha_ai_task
+      groq       – Groq (kräver API-nyckel i input_text.f1_ai_api_key)
+      ha_ai_task – HA:s inbyggda AI
+      anthropic  – Anthropic Claude direkt (kräver API-nyckel)
+      openai     – OpenAI GPT-4o-mini (kräver API-nyckel)
+    """
     if _ai_busy[0]:
         return None
     _ai_busy[0] = True
     try:
-        # Försök med Groq – lånar nyckel från Grocery Tracker
-        api_key = (state.get("input_text.grocery_api_key_groq") or "").strip()
-        if api_key and api_key not in ("unknown", "none", "unavailable"):
-            try:
-                import aiohttp
-                payload = {
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": max_tokens,
-                    "temperature": 0.85,
-                }
-                headers = {
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                }
-                async with aiohttp.ClientSession() as sess:
-                    async with sess.post(
-                        "https://api.groq.com/openai/v1/chat/completions",
-                        headers=headers,
-                        json=payload,
-                        timeout=aiohttp.ClientTimeout(total=15),
-                    ) as resp:
-                        if resp.status == 200:
-                            data = await resp.json(content_type=None)
-                            return data["choices"][0]["message"]["content"].strip()
-                        log.warning(f"[OpenF1-AI] Groq HTTP {resp.status}")
-            except Exception as e:
-                log.warning(f"[OpenF1-AI] Groq-fel: {e}")
+        provider = (state.get("input_select.f1_ai_provider") or "auto").strip().lower()
 
-        # Fallback: ha_ai_task (Google AI / Anthropic etc.)
-        try:
-            result = await ai_task.generate_data(
-                task_name="f1_commentary",
-                instructions=prompt,
-            )
-            if isinstance(result, str):
-                return result.strip() or None
-            if isinstance(result, dict):
-                return result.get("text") or result.get("result") or None
-        except Exception as e:
-            log.warning(f"[OpenF1-AI] ha_ai_task-fel: {e}")
+        # Hämta API-nyckel – egen nyckel har prioritet, sedan Grocery Tracker som fallback
+        own_key     = (state.get("input_text.f1_ai_api_key") or "").strip()
+        grocery_key = (state.get("input_text.grocery_api_key_groq") or "").strip()
 
-        return None
+        if provider == "groq":
+            key = own_key if _ai_key_ok(own_key) else grocery_key
+            if not _ai_key_ok(key):
+                log.warning("[OpenF1-AI] Groq valt men ingen API-nyckel konfigurerad i input_text.f1_ai_api_key")
+                return None
+            return await _call_groq(key, prompt, max_tokens)
+
+        if provider == "anthropic":
+            if not _ai_key_ok(own_key):
+                log.warning("[OpenF1-AI] Anthropic valt men ingen API-nyckel i input_text.f1_ai_api_key")
+                return None
+            return await _call_anthropic(own_key, prompt, max_tokens)
+
+        if provider == "openai":
+            if not _ai_key_ok(own_key):
+                log.warning("[OpenF1-AI] OpenAI valt men ingen API-nyckel i input_text.f1_ai_api_key")
+                return None
+            return await _call_openai(own_key, prompt, max_tokens)
+
+        if provider == "ha_ai_task":
+            return await _call_ha_ai_task(prompt)
+
+        # auto: prova Groq (egen nyckel → Grocery-nyckel → ha_ai_task)
+        groq_key = own_key if _ai_key_ok(own_key) else grocery_key
+        if _ai_key_ok(groq_key):
+            result = await _call_groq(groq_key, prompt, max_tokens)
+            if result:
+                return result
+        return await _call_ha_ai_task(prompt)
+
     finally:
         _ai_busy[0] = False
 
