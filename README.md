@@ -175,6 +175,8 @@ The display shows 3 pages (touch to cycle):
 
 Auto-switches to race page when a session starts.
 
+**→ Full installation guide: [esphome/README.md](esphome/README.md)**
+
 ## Update interval
 
 | Situation | Interval |
