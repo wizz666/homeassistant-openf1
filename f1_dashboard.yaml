@@ -265,6 +265,24 @@ views:
             name: "Live-kommentar (röd/SC/CHEQUERED)"
           - entity: input_boolean.f1_ai_recap
             name: "Session-referat (auto efter lopp)"
+          - entity: input_select.f1_ai_provider
+            name: "Leverantör"
+          - entity: input_text.f1_ai_api_key
+            name: "API-nyckel"
+
+      - type: markdown
+        content: >
+          ### Leverantörer
+
+          | Val | Kräver nyckel | Modell |
+          |-----|--------------|--------|
+          | **auto** | Nej (använder Groq om nyckel finns, annars HA AI) | llama-3.3-70b |
+          | **groq** | Ja – [console.groq.com](https://console.groq.com) (gratis) | llama-3.3-70b |
+          | **ha_ai_task** | Nej – använder HA:s konfigurerade AI | Beror på HA-setup |
+          | **anthropic** | Ja – [console.anthropic.com](https://console.anthropic.com) | claude-haiku |
+          | **openai** | Ja – [platform.openai.com](https://platform.openai.com) | gpt-4o-mini |
+
+          Lämna API-nyckeln tom om du väljer **ha_ai_task** eller **auto** utan Groq.
 
       - type: markdown
         title: "🎙️ AI-kommentator"
