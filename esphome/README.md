@@ -110,6 +110,7 @@ wifi_ssid: "YourNetworkName"
 wifi_password: "YourWiFiPassword"
 api_encryption_key: "your32bytebase64key=="   # generate below
 ota_password: "choose-a-password"
+fallback_ap_password: "choose-a-fallback-password"
 ```
 
 **Generate an API encryption key:**
@@ -186,7 +187,7 @@ The device has not yet synced with Home Assistant. Allow 30–60 seconds after b
 The `sensor.f1_live_grid` is only populated when position + tyre data is available. This takes a few laps into the session.
 
 **Device not appearing in ESPHome**
-Make sure the device is on the same Wi-Fi network as Home Assistant. If it fails to connect, it creates a fallback hotspot named **F1Display Fallback** (password: `f1display123`) — connect to it to re-configure Wi-Fi.
+Make sure the device is on the same Wi-Fi network as Home Assistant. If it fails to connect, it creates a fallback hotspot named **F1Display Fallback** — connect to it using the `fallback_ap_password` you set in `secrets.yaml` to re-configure Wi-Fi.
 
 **Touch not responding or triggering in wrong position**
 The touch calibration values in the YAML (`x_min: 200`, `x_max: 3800`, `y_min: 240`, `y_max: 3860`) work for most boards. If touch is off, adjust these values. Some boards need `mirror_y: true` added under `transform`.

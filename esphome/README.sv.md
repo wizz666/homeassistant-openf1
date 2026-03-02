@@ -110,6 +110,7 @@ wifi_ssid: "DittNätverksnamn"
 wifi_password: "DittWiFiLösenord"
 api_encryption_key: "din32bytebase64nyckel=="   # generera nedan
 ota_password: "välj-ett-lösenord"
+fallback_ap_password: "välj-ett-reservlösenord"
 ```
 
 **Generera en API-krypteringsnyckel:**
@@ -186,7 +187,7 @@ Enheten har ännu inte synkat med Home Assistant. Vänta 30–60 sekunder efter 
 `sensor.f1_live_grid` fylls bara när positions- och däckdata finns tillgänglig. Detta tar några varv in i sessionen.
 
 **Enheten dyker inte upp i ESPHome**
-Se till att enheten är på samma Wi-Fi-nätverk som Home Assistant. Om den inte kan ansluta skapar den en reservhotspot med namnet **F1Display Fallback** (lösenord: `f1display123`) — anslut till den för att konfigurera om Wi-Fi.
+Se till att enheten är på samma Wi-Fi-nätverk som Home Assistant. Om den inte kan ansluta skapar den en reservhotspot med namnet **F1Display Fallback** — anslut med lösenordet du valde för `fallback_ap_password` i `secrets.yaml` för att konfigurera om Wi-Fi.
 
 **Touch svarar inte eller triggar på fel position**
 Kalibreringsvärdena i YAML:en (`x_min: 200`, `x_max: 3800`, `y_min: 240`, `y_max: 3860`) fungerar för de flesta kort. Om touchen är ur fas, justera dessa värden. Vissa kort behöver även `mirror_y: true` under `transform`.
