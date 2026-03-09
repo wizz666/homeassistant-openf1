@@ -173,6 +173,20 @@ async def _get(endpoint, params=None):
         log.warning(f"[OpenF1] API-fel ({endpoint}): {e}")
     return []
 
+async def _get_jolpica(path):
+    """Fallback: hämta standings från Jolpica/Ergast när openf1.org saknar data."""
+    import aiohttp
+    url = f"https://api.jolpi.ca/ergast/f1/{path}"
+    try:
+        async with aiohttp.ClientSession() as sess:
+            async with sess.get(url, timeout=aiohttp.ClientTimeout(total=12)) as resp:
+                if resp.status == 200:
+                    return await resp.json(content_type=None)
+                log.warning(f"[OpenF1] Jolpica HTTP {resp.status}: {path}")
+    except Exception as e:
+        log.warning(f"[OpenF1] Jolpica-fel ({path}): {e}")
+    return None
+
 # ─── Tid-hjälpare ─────────────────────────────────────────────────────────────
 
 def _now_utc():
@@ -902,54 +916,90 @@ async def _call_ha_ai_task(prompt):
     return None
 
 
-async def _ask_ai(prompt, max_tokens=200):
-    """Routing-funktion: skickar prompt till rätt AI-leverantör.
+def _resolve_key(provider):
+    """
+    Hämtar API-nyckel för provider.
+    Prioritet: AI Hub → egen F1-nyckel → (Groq: Grocery Tracker-fallback)
+    """
+    hub_entities = {
+        "groq":      "input_text.ai_hub_groq_key",
+        "anthropic": "input_text.ai_hub_anthropic_key",
+        "openai":    "input_text.ai_hub_openai_key",
+    }
+    # 1. AI Hub
+    hub_key = (state.get(hub_entities.get(provider, "")) or "").strip()
+    if _ai_key_ok(hub_key):
+        return hub_key
+    # 2. Egen F1-nyckel
+    own_key = (state.get("input_text.f1_ai_api_key") or "").strip()
+    if _ai_key_ok(own_key):
+        return own_key
+    # 3. Groq: bakåtkompatibel fallback från Grocery Tracker
+    if provider == "groq":
+        legacy = (state.get("input_text.grocery_api_key_groq") or "").strip()
+        if _ai_key_ok(legacy):
+            return legacy
+    return ""
 
-    Leverantör väljs via input_select.f1_ai_provider:
-      auto       – Groq om nyckel finns, annars ha_ai_task
-      groq       – Groq (kräver API-nyckel i input_text.f1_ai_api_key)
+
+async def _ask_ai(prompt, max_tokens=200):
+    """
+    Routing-funktion: skickar prompt till rätt AI-leverantör.
+
+    Leverantör väljs via input_select.f1_ai_provider (eller ai_hub_default_provider som fallback):
+      auto       – Groq → Anthropic → OpenAI → ha_ai_task (första med nyckel)
+      groq       – Groq
       ha_ai_task – HA:s inbyggda AI
-      anthropic  – Anthropic Claude direkt (kräver API-nyckel)
-      openai     – OpenAI GPT-4o-mini (kräver API-nyckel)
+      anthropic  – Anthropic Claude
+      openai     – OpenAI GPT-4o-mini
+
+    Nycklar hämtas i prioritetsordning: AI Hub → f1_ai_api_key → (legacy grocery key)
     """
     if _ai_busy[0]:
         return None
     _ai_busy[0] = True
     try:
-        provider = (state.get("input_select.f1_ai_provider") or "auto").strip().lower()
-
-        # Hämta API-nyckel – egen nyckel har prioritet, sedan Grocery Tracker som fallback
-        own_key     = (state.get("input_text.f1_ai_api_key") or "").strip()
-        grocery_key = (state.get("input_text.grocery_api_key_groq") or "").strip()
+        # Provider: f1_ai_provider → ai_hub_default_provider → auto
+        provider = (state.get("input_select.f1_ai_provider") or "").strip().lower()
+        if not provider or provider == "auto":
+            hub_default = (state.get("input_select.ai_hub_default_provider") or "auto").strip().lower()
+            provider = hub_default
 
         if provider == "groq":
-            key = own_key if _ai_key_ok(own_key) else grocery_key
+            key = _resolve_key("groq")
             if not _ai_key_ok(key):
-                log.warning("[OpenF1-AI] Groq valt men ingen API-nyckel konfigurerad i input_text.f1_ai_api_key")
+                log.warning("[OpenF1-AI] Groq valt men ingen nyckel – kontrollera AI Hub eller input_text.f1_ai_api_key")
                 return None
             return await _call_groq(key, prompt, max_tokens)
 
         if provider == "anthropic":
-            if not _ai_key_ok(own_key):
-                log.warning("[OpenF1-AI] Anthropic valt men ingen API-nyckel i input_text.f1_ai_api_key")
+            key = _resolve_key("anthropic")
+            if not _ai_key_ok(key):
+                log.warning("[OpenF1-AI] Anthropic valt men ingen nyckel")
                 return None
-            return await _call_anthropic(own_key, prompt, max_tokens)
+            return await _call_anthropic(key, prompt, max_tokens)
 
         if provider == "openai":
-            if not _ai_key_ok(own_key):
-                log.warning("[OpenF1-AI] OpenAI valt men ingen API-nyckel i input_text.f1_ai_api_key")
+            key = _resolve_key("openai")
+            if not _ai_key_ok(key):
+                log.warning("[OpenF1-AI] OpenAI valt men ingen nyckel")
                 return None
-            return await _call_openai(own_key, prompt, max_tokens)
+            return await _call_openai(key, prompt, max_tokens)
 
         if provider == "ha_ai_task":
             return await _call_ha_ai_task(prompt)
 
-        # auto: prova Groq (egen nyckel → Grocery-nyckel → ha_ai_task)
-        groq_key = own_key if _ai_key_ok(own_key) else grocery_key
-        if _ai_key_ok(groq_key):
-            result = await _call_groq(groq_key, prompt, max_tokens)
-            if result:
-                return result
+        # auto: prova Groq → Anthropic → OpenAI → ha_ai_task
+        for prov, call_fn in [
+            ("groq",      _call_groq),
+            ("anthropic", _call_anthropic),
+            ("openai",    _call_openai),
+        ]:
+            key = _resolve_key(prov)
+            if _ai_key_ok(key):
+                result = await call_fn(key, prompt, max_tokens)
+                if result:
+                    return result
         return await _call_ha_ai_task(prompt)
 
     finally:
@@ -1054,12 +1104,14 @@ async def _ai_session_recap():
 # ─── Mästerskap (standings) ───────────────────────────────────────────────────
 
 async def _fetch_standings():
-    """Hämtar förare- och konstruktörsmästerskap. Kör max 1 gång/timme."""
+    """Hämtar förare- och konstruktörsmästerskap. Kör max 1 gång/timme.
+    Primär: openf1.org. Fallback: Jolpica/Ergast (har alltid aktuell data)."""
     year = _now_utc().year
 
     # ── Förarmästerskap ──────────────────────────────────────────────────────
     drv_data = await _get("drivers_championship", {"year": year})
     if drv_data:
+        # openf1.org-format
         drv_sorted = sorted(drv_data, key=lambda d: d.get("position", 99))
         lines = []
         summary_parts = []
@@ -1075,19 +1127,48 @@ async def _fetch_standings():
             "icon": "mdi:trophy",
             "summary": " · ".join(summary_parts),
             "year": year,
+            "source": "openf1",
         })
-        log.info(f"[OpenF1] Förare-standings: {' · '.join(summary_parts)}")
+        log.info(f"[OpenF1] Förare-standings (openf1): {' · '.join(summary_parts)}")
     else:
-        state.set("sensor.f1_driver_standings", "–", {
-            "friendly_name": "F1 – Förarmästerskap",
-            "icon": "mdi:trophy",
-            "summary": f"{year} säsongen ej startad",
-            "year": year,
-        })
+        # Fallback: Jolpica/Ergast
+        log.info("[OpenF1] openf1.org saknar standings – försöker Jolpica")
+        jdata = await _get_jolpica(f"{year}/driverStandings.json")
+        try:
+            slists = jdata["MRData"]["StandingsTable"]["StandingsLists"]
+            drv_list = slists[0]["DriverStandings"] if slists else []
+        except Exception:
+            drv_list = []
+        if drv_list:
+            lines = []
+            summary_parts = []
+            for d in drv_list[:10]:
+                pos  = d.get("position", "?")
+                abbr = (d.get("Driver", {}).get("code") or "UNK")[:3].upper()
+                pts  = int(float(d.get("points") or 0))
+                lines.append(f"{pos}.{abbr} {pts}p")
+                if len(summary_parts) < 3:
+                    summary_parts.append(f"{abbr} {pts}")
+            state.set("sensor.f1_driver_standings", "|".join(lines), {
+                "friendly_name": "F1 – Förarmästerskap",
+                "icon": "mdi:trophy",
+                "summary": " · ".join(summary_parts),
+                "year": year,
+                "source": "jolpica",
+            })
+            log.info(f"[OpenF1] Förare-standings (jolpica): {' · '.join(summary_parts)}")
+        else:
+            state.set("sensor.f1_driver_standings", "–", {
+                "friendly_name": "F1 – Förarmästerskap",
+                "icon": "mdi:trophy",
+                "summary": f"{year} säsongen ej startad",
+                "year": year,
+            })
 
     # ── Konstruktörsmästerskap ───────────────────────────────────────────────
     con_data = await _get("teams_championship", {"year": year})
     if con_data:
+        # openf1.org-format
         con_sorted = sorted(con_data, key=lambda t: t.get("position", 99))
         lines = []
         summary_parts = []
@@ -1104,15 +1185,43 @@ async def _fetch_standings():
             "icon": "mdi:wrench-outline",
             "summary": " · ".join(summary_parts),
             "year": year,
+            "source": "openf1",
         })
-        log.info(f"[OpenF1] Konstruktörs-standings: {' · '.join(summary_parts)}")
+        log.info(f"[OpenF1] Konstruktörs-standings (openf1): {' · '.join(summary_parts)}")
     else:
-        state.set("sensor.f1_constructor_standings", "–", {
-            "friendly_name": "F1 – Konstruktörsmästerskap",
-            "icon": "mdi:wrench-outline",
-            "summary": f"{year} säsongen ej startad",
-            "year": year,
-        })
+        # Fallback: Jolpica/Ergast
+        jdata = await _get_jolpica(f"{year}/constructorStandings.json")
+        try:
+            slists = jdata["MRData"]["StandingsTable"]["StandingsLists"]
+            con_list = slists[0]["ConstructorStandings"] if slists else []
+        except Exception:
+            con_list = []
+        if con_list:
+            lines = []
+            summary_parts = []
+            for t in con_list[:10]:
+                pos  = t.get("position", "?")
+                name = t.get("Constructor", {}).get("name", "?")
+                abbr = TEAM_ABBR.get(name, name[:3].upper())
+                pts  = int(float(t.get("points") or 0))
+                lines.append(f"{pos}.{abbr} {pts}p")
+                if len(summary_parts) < 3:
+                    summary_parts.append(f"{abbr} {pts}")
+            state.set("sensor.f1_constructor_standings", "|".join(lines), {
+                "friendly_name": "F1 – Konstruktörsmästerskap",
+                "icon": "mdi:wrench-outline",
+                "summary": " · ".join(summary_parts),
+                "year": year,
+                "source": "jolpica",
+            })
+            log.info(f"[OpenF1] Konstruktörs-standings (jolpica): {' · '.join(summary_parts)}")
+        else:
+            state.set("sensor.f1_constructor_standings", "–", {
+                "friendly_name": "F1 – Konstruktörsmästerskap",
+                "icon": "mdi:wrench-outline",
+                "summary": f"{year} säsongen ej startad",
+                "year": year,
+            })
 
     _last_standings_check[0] = _now_utc().timestamp()
 
