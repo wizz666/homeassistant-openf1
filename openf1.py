@@ -934,11 +934,6 @@ def _resolve_key(provider):
     own_key = (state.get("input_text.f1_ai_api_key") or "").strip()
     if _ai_key_ok(own_key):
         return own_key
-    # 3. Groq: bakåtkompatibel fallback från Grocery Tracker
-    if provider == "groq":
-        legacy = (state.get("input_text.grocery_api_key_groq") or "").strip()
-        if _ai_key_ok(legacy):
-            return legacy
     return ""
 
 
