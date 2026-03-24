@@ -7,158 +7,251 @@ views:
     icon: mdi:racing-helmet
     cards:
 
-      # Session-status + flagga
-      - type: horizontal-stack
-        cards:
-          - type: entity
-            entity: sensor.f1_session_status
-            name: "Session"
-            icon: mdi:racing-helmet
-
-          - type: entity
-            entity: sensor.f1_flag
-            name: "Flagga"
-            attribute: display
-            icon: mdi:flag
-
-          - type: entity
-            entity: sensor.f1_lap
-            name: "Varv"
-            icon: mdi:counter
-
-      # Tre förarkort – dynamiska (visar vald förare från inställningar)
-      - type: grid
-        columns: 3
-        square: false
-        cards:
-
-          # Slot 1
-          - type: custom:mushroom-template-card
-            primary: "{{ states('sensor.f1_d1_name') }}"
-            secondary: |
-              P{{ states('sensor.f1_d1_position') }}
-              {{ states('sensor.f1_d1_gap') }}
-            icon: mdi:podium
-            badge_icon: mdi:tire
-            badge_color: >
-              {% set c = state_attr('sensor.f1_d1_compound', 'compound') %}
-              {% if c == 'SOFT' %}red
-              {% elif c == 'MEDIUM' %}yellow
-              {% elif c == 'HARD' %}white
-              {% elif c == 'INTERMEDIATE' %}green
-              {% elif c == 'WET' %}blue
-              {% else %}grey{% endif %}
-
-          # Slot 2
-          - type: custom:mushroom-template-card
-            primary: "{{ states('sensor.f1_d2_name') }}"
-            secondary: |
-              P{{ states('sensor.f1_d2_position') }}
-              {{ states('sensor.f1_d2_gap') }}
-            icon: mdi:podium
-            badge_icon: mdi:tire
-            badge_color: >
-              {% set c = state_attr('sensor.f1_d2_compound', 'compound') %}
-              {% if c == 'SOFT' %}red
-              {% elif c == 'MEDIUM' %}yellow
-              {% elif c == 'HARD' %}white
-              {% elif c == 'INTERMEDIATE' %}green
-              {% elif c == 'WET' %}blue
-              {% else %}grey{% endif %}
-
-          # Slot 3
-          - type: custom:mushroom-template-card
-            primary: "{{ states('sensor.f1_d3_name') }}"
-            secondary: |
-              P{{ states('sensor.f1_d3_position') }}
-              {{ states('sensor.f1_d3_gap') }}
-            icon: mdi:podium
-            badge_icon: mdi:tire
-            badge_color: >
-              {% set c = state_attr('sensor.f1_d3_compound', 'compound') %}
-              {% if c == 'SOFT' %}red
-              {% elif c == 'MEDIUM' %}yellow
-              {% elif c == 'HARD' %}white
-              {% elif c == 'INTERMEDIATE' %}green
-              {% elif c == 'WET' %}blue
-              {% else %}grey{% endif %}
-
-      # Detaljkort – Slot 1
-      - type: entities
-        title: "Förare 1"
-        entities:
-          - entity: sensor.f1_d1_name
-            name: "Förare"
-          - entity: sensor.f1_d1_position
-            name: "Position"
-          - entity: sensor.f1_d1_gap
-            name: "Gap to leader"
-          - entity: sensor.f1_d1_interval
-            name: "Interval"
-          - entity: sensor.f1_d1_compound
-            name: "Däck"
-          - entity: sensor.f1_d1_tyre_age
-            name: "Däckålder"
-
-      # Detaljkort – Slot 2
-      - type: entities
-        title: "Förare 2"
-        entities:
-          - entity: sensor.f1_d2_name
-            name: "Förare"
-          - entity: sensor.f1_d2_position
-            name: "Position"
-          - entity: sensor.f1_d2_gap
-            name: "Gap to leader"
-          - entity: sensor.f1_d2_interval
-            name: "Interval"
-          - entity: sensor.f1_d2_compound
-            name: "Däck"
-          - entity: sensor.f1_d2_tyre_age
-            name: "Däckålder"
-
-      # Detaljkort – Slot 3
-      - type: entities
-        title: "Förare 3"
-        entities:
-          - entity: sensor.f1_d3_name
-            name: "Förare"
-          - entity: sensor.f1_d3_position
-            name: "Position"
-          - entity: sensor.f1_d3_gap
-            name: "Gap to leader"
-          - entity: sensor.f1_d3_interval
-            name: "Interval"
-          - entity: sensor.f1_d3_compound
-            name: "Däck"
-          - entity: sensor.f1_d3_tyre_age
-            name: "Däckålder"
-
-      # Race Control historik
-      - type: conditional
-        conditions:
-          - entity: sensor.f1_session_status
-            state_not: "inactive"
-        card:
-          type: markdown
-          title: "📻 Race Control"
-          content: >
-            {% set hist = state_attr('sensor.f1_flag', 'history') %}
-            {% if hist %}
-              {% for h in hist %}
-                **{{ h.time }}**{% if h.lap %} (varv {{ h.lap }}){% endif %} {{ h.flag }} {{ h.message }}
-              {% endfor %}
-            {% else %}
-              Inga händelser ännu.
-            {% endif %}
-
-      # Uppdatera-knapp
-      - type: button
-        name: "Uppdatera nu"
-        icon: mdi:refresh
+      # ── Banner (spänner hela bredden) ────────────────────────────
+      - type: custom:button-card
+        name: "F1 Live"
+        label: "openf1.org  •  Live telemetri"
+        show_label: true
+        show_icon: true
+        icon: mdi:racing-helmet
         tap_action:
-          action: call-service
-          service: script.f1_refresh_btn
+          action: none
+        extra_styles: |
+          @keyframes hdr-f1 {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+          @keyframes flag-wave {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.7; }
+          }
+        styles:
+          card:
+            - background: "linear-gradient(-45deg, #15151e, #e10600, #15151e, #b30500)"
+            - background-size: "300% 300%"
+            - animation: "hdr-f1 10s ease infinite"
+            - border-radius: 20px
+            - padding: "18px 24px"
+            - box-shadow: "0 8px 32px rgba(225, 6, 0, 0.40)"
+          grid:
+            - grid-template-areas: '"i n" "i l"'
+            - grid-template-rows: "min-content min-content"
+            - grid-template-columns: "min-content 1fr"
+          icon:
+            - color: "rgba(255,255,255,0.95)"
+            - width: 40px
+            - animation: "flag-wave 2s ease-in-out infinite"
+          name:
+            - font-size: 22px
+            - font-weight: 800
+            - color: white
+            - text-align: left
+            - letter-spacing: "0.5px"
+          label:
+            - font-size: 12px
+            - color: "rgba(255,255,255,0.65)"
+            - text-align: left
+
+      # ── Vänster: Gauge + Session + Förare (kompakt) ──────────────
+      - type: vertical-stack
+        cards:
+          - type: custom:modern-circular-gauge
+            entity: sensor.f1_lap
+            name: Varv
+            min: 0
+            max: 70
+            needle: true
+            segments:
+              - from: 0
+                color: "#e10600"
+              - from: 20
+                color: "#ff9800"
+              - from: 50
+                color: "#ffd600"
+              - from: 60
+                color: "#00c853"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.85) 0%,
+                    rgba(60,0,0,0.40) 100%);
+                  border: 1px solid rgba(225,6,0,0.35);
+                  border-radius: 20px;
+                  box-shadow: 0 4px 20px rgba(225,6,0,0.20);
+                }
+
+          # ── Session-statusrad (multiple-entity-row) ──────────────
+          - type: entities
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.80) 0%,
+                    rgba(60,0,0,0.30) 100%);
+                  border: 1px solid rgba(225,6,0,0.28);
+                  border-radius: 16px;
+                }
+            entities:
+              - entity: sensor.f1_session_status
+                type: custom:multiple-entity-row
+                name: Session
+                show_state: true
+                entities:
+                  - entity: sensor.f1_flag
+                    name: Flagga
+                    attribute: display
+                  - entity: sensor.f1_lap
+                    name: Varv
+
+          # ── Följda förare (3 rader med multiple-entity-row) ──────
+          - type: entities
+            title: "Följda förare"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.80) 0%,
+                    rgba(60,0,0,0.30) 100%);
+                  border: 1px solid rgba(225,6,0,0.25);
+                  border-radius: 16px;
+                  border-left: 4px solid #e10600;
+                }
+            entities:
+              - entity: sensor.f1_d1_name
+                type: custom:multiple-entity-row
+                name: "D1"
+                show_state: true
+                entities:
+                  - entity: sensor.f1_d1_position
+                    name: "P"
+                  - entity: sensor.f1_d1_gap
+                    name: "Gap"
+                  - entity: sensor.f1_d1_compound
+                    name: "Däck"
+              - entity: sensor.f1_d2_name
+                type: custom:multiple-entity-row
+                name: "D2"
+                show_state: true
+                entities:
+                  - entity: sensor.f1_d2_position
+                    name: "P"
+                  - entity: sensor.f1_d2_gap
+                    name: "Gap"
+                  - entity: sensor.f1_d2_compound
+                    name: "Däck"
+              - entity: sensor.f1_d3_name
+                type: custom:multiple-entity-row
+                name: "D3"
+                show_state: true
+                entities:
+                  - entity: sensor.f1_d3_position
+                    name: "P"
+                  - entity: sensor.f1_d3_gap
+                    name: "Gap"
+                  - entity: sensor.f1_d3_compound
+                    name: "Däck"
+
+      # ── Höger: Förarkort + Race Control + Refresh ─────────────────
+      - type: vertical-stack
+        cards:
+          - type: grid
+            columns: 3
+            square: false
+            cards:
+              - type: custom:mushroom-template-card
+                primary: "{{ states('sensor.f1_d1_name') }}"
+                secondary: |
+                  P{{ states('sensor.f1_d1_position') }}
+                  {{ states('sensor.f1_d1_gap') }}
+                icon: mdi:podium
+                badge_icon: mdi:tire
+                badge_color: >
+                  {% set c = state_attr('sensor.f1_d1_compound', 'compound') %}
+                  {% if c == 'SOFT' %}red
+                  {% elif c == 'MEDIUM' %}yellow
+                  {% elif c == 'HARD' %}white
+                  {% elif c == 'INTERMEDIATE' %}green
+                  {% elif c == 'WET' %}blue
+                  {% else %}grey{% endif %}
+
+              - type: custom:mushroom-template-card
+                primary: "{{ states('sensor.f1_d2_name') }}"
+                secondary: |
+                  P{{ states('sensor.f1_d2_position') }}
+                  {{ states('sensor.f1_d2_gap') }}
+                icon: mdi:podium
+                badge_icon: mdi:tire
+                badge_color: >
+                  {% set c = state_attr('sensor.f1_d2_compound', 'compound') %}
+                  {% if c == 'SOFT' %}red
+                  {% elif c == 'MEDIUM' %}yellow
+                  {% elif c == 'HARD' %}white
+                  {% elif c == 'INTERMEDIATE' %}green
+                  {% elif c == 'WET' %}blue
+                  {% else %}grey{% endif %}
+
+              - type: custom:mushroom-template-card
+                primary: "{{ states('sensor.f1_d3_name') }}"
+                secondary: |
+                  P{{ states('sensor.f1_d3_position') }}
+                  {{ states('sensor.f1_d3_gap') }}
+                icon: mdi:podium
+                badge_icon: mdi:tire
+                badge_color: >
+                  {% set c = state_attr('sensor.f1_d3_compound', 'compound') %}
+                  {% if c == 'SOFT' %}red
+                  {% elif c == 'MEDIUM' %}yellow
+                  {% elif c == 'HARD' %}white
+                  {% elif c == 'INTERMEDIATE' %}green
+                  {% elif c == 'WET' %}blue
+                  {% else %}grey{% endif %}
+
+          - type: conditional
+            conditions:
+              - entity: sensor.f1_session_status
+                state_not: "inactive"
+            card:
+              type: markdown
+              title: "📻 Race Control"
+              card_mod:
+                style: |
+                  ha-card {
+                    background: linear-gradient(135deg,
+                      rgba(21,21,30,0.80) 0%,
+                      rgba(60,0,0,0.30) 100%);
+                    border: 1px solid rgba(225,6,0,0.25);
+                    border-radius: 16px;
+                  }
+              content: >
+                {% set hist = state_attr('sensor.f1_flag', 'history') %}
+                {% if hist %}
+                  {% for h in hist %}
+                    **{{ h.time }}**{% if h.lap %} (varv {{ h.lap }}){% endif %} {{ h.flag }} {{ h.message }}
+                  {% endfor %}
+                {% else %}
+                  Inga händelser ännu.
+                {% endif %}
+
+          - type: custom:button-card
+            name: "Uppdatera nu"
+            icon: mdi:refresh
+            tap_action:
+              action: call-service
+              service: script.f1_refresh_btn
+            styles:
+              card:
+                - background: "linear-gradient(135deg, #15151e, #2c2c3e)"
+                - border: "1px solid rgba(225,6,0,0.40)"
+                - border-radius: 14px
+                - padding: "12px"
+              icon:
+                - color: "#e10600"
+                - width: 28px
+              name:
+                - color: "rgba(255,255,255,0.85)"
+                - font-size: 13px
 
   # ─── Vy 2: Race Weekend ───────────────────────────────────────────────────
   - title: "Race Weekend"
@@ -166,35 +259,81 @@ views:
     icon: mdi:calendar-star
     cards:
 
-      - type: entities
-        title: "Nästa session"
-        entities:
-          - entity: sensor.f1_next_session
-            name: "Om"
-          - type: attribute
-            entity: sensor.f1_next_session
-            attribute: session_name
-            name: "Session"
-            icon: mdi:flag-checkered
-          - type: attribute
-            entity: sensor.f1_next_session
-            attribute: circuit
-            name: "Bana"
-            icon: mdi:map-marker
-          - type: attribute
-            entity: sensor.f1_next_session
-            attribute: country
-            name: "Land"
-            icon: mdi:earth
-          - type: attribute
-            entity: sensor.f1_next_session
-            attribute: date_start
-            name: "Starttid (UTC)"
-            icon: mdi:clock-outline
+      # ── Vänster: Nästa session ────────────────────────────────────
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: "Nästa session"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.80) 0%,
+                    rgba(60,0,0,0.30) 100%);
+                  border: 1px solid rgba(225,6,0,0.28);
+                  border-radius: 16px;
+                  border-left: 4px solid #e10600;
+                }
+            entities:
+              - entity: sensor.f1_next_session
+                name: "Om"
+                icon: mdi:timer-outline
+              - type: attribute
+                entity: sensor.f1_next_session
+                attribute: session_name
+                name: "Session"
+                icon: mdi:flag-checkered
+              - type: attribute
+                entity: sensor.f1_next_session
+                attribute: circuit
+                name: "Bana"
+                icon: mdi:map-marker
+              - type: attribute
+                entity: sensor.f1_next_session
+                attribute: country
+                name: "Land"
+                icon: mdi:earth
+              - type: attribute
+                entity: sensor.f1_next_session
+                attribute: date_start
+                name: "Starttid (UTC)"
+                icon: mdi:clock-outline
 
-      - type: entity
-        entity: sensor.f1_session_status
-        name: "Aktuell session"
+      # ── Höger: Session-status + Race-info ────────────────────────
+      - type: vertical-stack
+        cards:
+          - type: entity
+            entity: sensor.f1_session_status
+            name: "Aktuell session"
+            icon: mdi:racing-helmet
+
+          - type: markdown
+            title: "Race weekend-info"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.75) 0%,
+                    rgba(60,0,0,0.25) 100%);
+                  border: 1px solid rgba(225,6,0,0.22);
+                  border-radius: 16px;
+                }
+            content: >
+              {% set ns = states('sensor.f1_next_session') %}
+              {% set sess = state_attr('sensor.f1_next_session', 'session_name') %}
+              {% set circuit = state_attr('sensor.f1_next_session', 'circuit') %}
+              {% set country = state_attr('sensor.f1_next_session', 'country') %}
+              {% if ns not in ('unknown', 'unavailable', '') %}
+              **{{ sess }}** om **{{ ns }}**
+
+              📍 {{ circuit }}, {{ country }}
+              {% else %}
+              _Laddar sessioninfo..._
+              {% endif %}
+
+              **Notiser:**
+              Röd flagga, Safety Car och Chequered skickas alltid automatiskt.
+              Gul flagga och pitstops kan aktiveras i **Inställningar**-fliken.
 
   # ─── Vy 3: Mästerskap ─────────────────────────────────────────────────────
   - title: "Mästerskap"
@@ -202,177 +341,311 @@ views:
     icon: mdi:trophy
     cards:
 
-      - type: horizontal-stack
+      # ── Vänster: Förarmästerskap ──────────────────────────────────
+      - type: vertical-stack
         cards:
           - type: entity
             entity: sensor.f1_driver_standings
-            name: "Förare"
+            name: "Förarmästerskap"
             icon: mdi:trophy
             attribute: summary
 
+          - type: markdown
+            title: "🏆 Förarmästerskap"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.75) 0%,
+                    rgba(60,0,0,0.25) 100%);
+                  border: 1px solid rgba(225,6,0,0.22);
+                  border-radius: 16px;
+                  border-left: 4px solid #e10600;
+                }
+            content: >
+              {% set data = states('sensor.f1_driver_standings') %}
+              {% if data not in ('–', 'Hämtar...', 'unavailable', 'unknown', '0') %}
+                {% for entry in data.split('|') %}
+                  **{{ entry }}**
+                {% endfor %}
+              {% else %}
+                _Säsongen har inte startat än eller data hämtas..._
+              {% endif %}
+
+      # ── Höger: Konstruktörsmästerskap + RC + Refresh ─────────────
+      - type: vertical-stack
+        cards:
           - type: entity
             entity: sensor.f1_constructor_standings
-            name: "Konstruktör"
+            name: "Konstruktörsmästerskap"
             icon: mdi:wrench-outline
             attribute: summary
 
-      - type: markdown
-        title: "🏆 Förarmästerskap"
-        content: >
-          {% set data = states('sensor.f1_driver_standings') %}
-          {% if data not in ('–', 'Hämtar...', 'unavailable', 'unknown') %}
-            {% for entry in data.split('|') %}
-              **{{ entry }}**
-            {% endfor %}
-          {% else %}
-            Säsongen har inte startat än.
-          {% endif %}
+          - type: markdown
+            title: "🏗 Konstruktörsmästerskap"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.75) 0%,
+                    rgba(60,0,0,0.25) 100%);
+                  border: 1px solid rgba(225,6,0,0.22);
+                  border-radius: 16px;
+                }
+            content: >
+              {% set data = states('sensor.f1_constructor_standings') %}
+              {% if data not in ('–', 'Hämtar...', 'unavailable', 'unknown', '0') %}
+                {% for entry in data.split('|') %}
+                  **{{ entry }}**
+                {% endfor %}
+              {% else %}
+                _Säsongen har inte startat än eller data hämtas..._
+              {% endif %}
 
-      - type: markdown
-        title: "🏗 Konstruktörsmästerskap"
-        content: >
-          {% set data = states('sensor.f1_constructor_standings') %}
-          {% if data not in ('–', 'Hämtar...', 'unavailable', 'unknown') %}
-            {% for entry in data.split('|') %}
-              **{{ entry }}**
-            {% endfor %}
-          {% else %}
-            Säsongen har inte startat än.
-          {% endif %}
+          - type: entity
+            entity: sensor.f1_race_control_msg
+            name: "Senaste Race Control"
+            icon: mdi:message-alert-outline
 
-      - type: entity
-        entity: sensor.f1_race_control_msg
-        name: "Senaste Race Control"
-        icon: mdi:message-alert-outline
+          - type: custom:button-card
+            name: "Uppdatera standings"
+            icon: mdi:refresh
+            tap_action:
+              action: call-service
+              service: script.f1_refresh_btn
+            styles:
+              card:
+                - background: "linear-gradient(135deg, #15151e, #2c2c3e)"
+                - border: "1px solid rgba(225,6,0,0.40)"
+                - border-radius: 14px
+                - padding: "12px"
+              icon:
+                - color: "#e10600"
+                - width: 28px
+              name:
+                - color: "rgba(255,255,255,0.85)"
+                - font-size: 13px
 
-      - type: button
-        name: "Uppdatera standings"
-        icon: mdi:refresh
-        tap_action:
-          action: call-service
-          service: script.f1_refresh_btn
-
-  # ─── Vy 5: AI ─────────────────────────────────────────────────────────────
+  # ─── Vy 4: AI ─────────────────────────────────────────────────────────────
   - title: "AI"
     path: ai
     icon: mdi:robot
     cards:
 
-      - type: entities
-        title: "AI-inställningar"
-        entities:
-          - entity: input_boolean.f1_ai_commentary
-            name: "Live-kommentar (röd/SC/CHEQUERED)"
-          - entity: input_boolean.f1_ai_recap
-            name: "Session-referat (auto efter lopp)"
-          - entity: input_select.f1_ai_provider
-            name: "Leverantör"
-          - entity: input_text.f1_ai_api_key
-            name: "API-nyckel"
+      # ── Vänster: AI-inställningar ─────────────────────────────────
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: "AI-inställningar"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.80) 0%,
+                    rgba(60,0,0,0.30) 100%);
+                  border: 1px solid rgba(225,6,0,0.28);
+                  border-radius: 16px;
+                  border-left: 4px solid #e10600;
+                }
+            entities:
+              - type: custom:fold-entity-row
+                head:
+                  type: section
+                  label: "Live-kommentator"
+                open: true
+                entities:
+                  - entity: input_boolean.f1_ai_commentary
+                    name: "Live-kommentar (röd/SC/CHEQUERED)"
+                  - entity: input_boolean.f1_ai_recap
+                    name: "Session-referat (auto efter lopp)"
+              - type: custom:fold-entity-row
+                head:
+                  type: section
+                  label: "AI-leverantör"
+                open: true
+                entities:
+                  - entity: input_select.f1_ai_provider
+                    name: "Leverantör"
+                  - entity: input_text.f1_ai_api_key
+                    name: "API-nyckel"
 
-      - type: markdown
-        content: >
-          ### Leverantörer
+          - type: markdown
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.75) 0%,
+                    rgba(60,0,0,0.25) 100%);
+                  border: 1px solid rgba(225,6,0,0.20);
+                  border-radius: 16px;
+                }
+            content: >
+              ### Leverantörer
 
-          | Val | Kräver nyckel | Modell |
-          |-----|--------------|--------|
-          | **auto** | Nej (använder Groq om nyckel finns, annars HA AI) | llama-3.3-70b |
-          | **groq** | Ja – [console.groq.com](https://console.groq.com) (gratis) | llama-3.3-70b |
-          | **ha_ai_task** | Nej – använder HA:s konfigurerade AI | Beror på HA-setup |
-          | **anthropic** | Ja – [console.anthropic.com](https://console.anthropic.com) | claude-haiku |
-          | **openai** | Ja – [platform.openai.com](https://platform.openai.com) | gpt-4o-mini |
+              | Val | Kräver nyckel | Modell |
+              |-----|--------------|--------|
+              | **auto** | Nej (Groq om nyckel finns, annars HA AI) | llama-3.3-70b |
+              | **groq** | Ja – [console.groq.com](https://console.groq.com) (gratis) | llama-3.3-70b |
+              | **ha_ai_task** | Nej – använder HA:s konfigurerade AI | Beror på HA-setup |
+              | **anthropic** | Ja – [console.anthropic.com](https://console.anthropic.com) | claude-haiku |
+              | **openai** | Ja – [platform.openai.com](https://platform.openai.com) | gpt-4o-mini |
 
-          Lämna API-nyckeln tom om du väljer **ha_ai_task** eller **auto** utan Groq.
+              Lämna API-nyckeln tom om du väljer **ha_ai_task** eller **auto** utan Groq.
 
-      - type: markdown
-        title: "🎙️ AI-kommentator"
-        content: >
-          {% set ts = state_attr('sensor.f1_ai_commentary', 'timestamp') %}
-          {% set ev = state_attr('sensor.f1_ai_commentary', 'event') %}
-          {% if ev %}_{{ ev }}_{% endif %}
+          - type: entity
+            entity: sensor.f1_live_grid
+            name: "Live Grid (antal förare)"
+            icon: mdi:format-list-numbered
 
-          **{{ states('sensor.f1_ai_commentary') }}**
+          - type: custom:button-card
+            name: "Uppdatera + testa AI"
+            icon: mdi:refresh
+            tap_action:
+              action: call-service
+              service: script.f1_refresh_btn
+            styles:
+              card:
+                - background: "linear-gradient(135deg, #15151e, #2c2c3e)"
+                - border: "1px solid rgba(225,6,0,0.40)"
+                - border-radius: 14px
+                - padding: "12px"
+              icon:
+                - color: "#e10600"
+                - width: 28px
+              name:
+                - color: "rgba(255,255,255,0.85)"
+                - font-size: 13px
 
-          {% if ts %}{{ ts[11:16] }} UTC{% endif %}
+      # ── Höger: AI-utdata ──────────────────────────────────────────
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            title: "🎙️ AI-kommentator"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.80) 0%,
+                    rgba(60,0,0,0.30) 100%);
+                  border: 1px solid rgba(225,6,0,0.28);
+                  border-radius: 16px;
+                  border-left: 4px solid #e10600;
+                }
+            content: >
+              {% set ts = state_attr('sensor.f1_ai_commentary', 'timestamp') %}
+              {% set ev = state_attr('sensor.f1_ai_commentary', 'event') %}
+              {% if ev %}_{{ ev }}_{% endif %}
 
-      - type: markdown
-        title: "📰 Senaste session-referat"
-        content: >
-          {% set sess = state_attr('sensor.f1_ai_recap', 'session') %}
-          {% set ts = state_attr('sensor.f1_ai_recap', 'timestamp') %}
-          {% if sess %}### {{ sess }}{% if ts %} ({{ ts[:10] }}){% endif %}{% endif %}
+              **{{ states('sensor.f1_ai_commentary') }}**
 
-          {{ states('sensor.f1_ai_recap') }}
+              {% if ts %}{{ ts[11:16] }} UTC{% endif %}
 
-      - type: entity
-        entity: sensor.f1_live_grid
-        name: "Live Grid (antal förare)"
-        icon: mdi:format-list-numbered
+          - type: markdown
+            title: "📰 Senaste session-referat"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.75) 0%,
+                    rgba(60,0,0,0.25) 100%);
+                  border: 1px solid rgba(225,6,0,0.22);
+                  border-radius: 16px;
+                }
+            content: >
+              {% set sess = state_attr('sensor.f1_ai_recap', 'session') %}
+              {% set ts = state_attr('sensor.f1_ai_recap', 'timestamp') %}
+              {% if sess %}### {{ sess }}{% if ts %} ({{ ts[:10] }}){% endif %}{% endif %}
 
-      - type: button
-        name: "Uppdatera + testa AI"
-        icon: mdi:refresh
-        tap_action:
-          action: call-service
-          service: script.f1_refresh_btn
+              {{ states('sensor.f1_ai_recap') }}
 
-  # ─── Vy 6: Inställningar ──────────────────────────────────────────────────
+  # ─── Vy 5: Inställningar ──────────────────────────────────────────────────
   - title: "Inställningar"
     path: installningar
     icon: mdi:cog
     cards:
 
-      # ── Välj förare (ange nummer 1-99, 0 = inaktiv slot) ──────────────────
-      - type: entities
-        title: "Följda förare"
-        entities:
-          - entity: input_number.f1_followed_1
-            name: "Förare 1"
-          - entity: sensor.f1_d1_name
-            name: "→ Namn"
-          - entity: input_number.f1_followed_2
-            name: "Förare 2"
-          - entity: sensor.f1_d2_name
-            name: "→ Namn"
-          - entity: input_number.f1_followed_3
-            name: "Förare 3"
-          - entity: sensor.f1_d3_name
-            name: "→ Namn"
+      # ── Vänster: Följda förare ────────────────────────────────────
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: "Följda förare"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.80) 0%,
+                    rgba(60,0,0,0.30) 100%);
+                  border: 1px solid rgba(225,6,0,0.28);
+                  border-radius: 16px;
+                  border-left: 4px solid #e10600;
+                }
+            entities:
+              - entity: input_number.f1_followed_1
+                name: "Förare 1 (startnummer)"
+              - entity: sensor.f1_d1_name
+                name: "  → Namn"
+                icon: mdi:account
+              - entity: input_number.f1_followed_2
+                name: "Förare 2 (startnummer)"
+              - entity: sensor.f1_d2_name
+                name: "  → Namn"
+                icon: mdi:account
+              - entity: input_number.f1_followed_3
+                name: "Förare 3 (startnummer)"
+              - entity: sensor.f1_d3_name
+                name: "  → Namn"
+                icon: mdi:account
 
-      - type: markdown
-        content: >
-          **Så här byter du förare:**
-          Ändra numret i fältet ovan till valfri förares startnummer.
-          Sätt 0 för att inaktivera en slot.
+          - type: entity
+            entity: sensor.f1_available_drivers
+            name: "Tillgängliga förare (aktuell session)"
+            icon: mdi:account-group
 
-          **Tillgängliga förare** hittas i `sensor.f1_available_drivers`
-          (uppdateras automatiskt när en session startar).
+      # ── Höger: Notiser + Info ─────────────────────────────────────
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: "Notiser"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.75) 0%,
+                    rgba(60,0,0,0.25) 100%);
+                  border: 1px solid rgba(225,6,0,0.22);
+                  border-radius: 16px;
+                }
+            entities:
+              - entity: input_boolean.f1_notify_flags
+                name: "Gul/grön flagga"
+              - entity: input_boolean.f1_notify_pitstops
+                name: "Pitstops"
 
-          Vanliga nummer 2025/26: VER=1, NOR=4, HAM=44, RUS=63,
-          LEC=16, SAI=55, ALO=14, STR=18, PIA=81, NOR=4
+          - type: markdown
+            title: "Info"
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(135deg,
+                    rgba(21,21,30,0.75) 0%,
+                    rgba(60,0,0,0.25) 100%);
+                  border: 1px solid rgba(225,6,0,0.20);
+                  border-radius: 16px;
+                }
+            content: >
+              **Byt förare:**
+              Ändra numret till valfri förares startnummer (0 = inaktiv).
 
-      - type: entity
-        entity: sensor.f1_available_drivers
-        name: "Tillgängliga förare (aktuell session)"
+              Vanliga nummer: VER=1, NOR=4, HAM=44, RUS=63,
+              LEC=16, SAI=55, ALO=14, STR=18, PIA=81
 
-      - type: entities
-        title: "Notiser"
-        entities:
-          - entity: input_boolean.f1_notify_flags
-            name: "Gul/grön flagga"
-          - entity: input_boolean.f1_notify_pitstops
-            name: "Pitstops"
+              **Notiser (alltid, oavsett inställningar):**
+              - 🔴 Röd flagga
+              - 🚗 Safety Car / VSC
+              - 🏁 Chequered flag (race klart)
 
-      - type: markdown
-        content: >
-          ### Data uppdateras
-          - **Aktiv session**: var 30:e sekund
-          - **Mellan sessioner**: var 5:e minut
+              **Data uppdateras:**
+              - Aktiv session: var 30:e sekund
+              - Mellan sessioner: var 5:e minut
 
-          ### Notiser (alltid, oavsett inställningar)
-          - 🔴 Röd flagga
-          - 🚗 Safety Car / VSC
-          - 🏁 Chequered flag (race klart)
-
-          ### API
-          openf1.org – gratis, ingen nyckel krävs
+              **API:** openf1.org – gratis, ingen nyckel krävs

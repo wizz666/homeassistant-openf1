@@ -168,7 +168,10 @@ async def _get(endpoint, params=None):
             async with sess.get(url, timeout=aiohttp.ClientTimeout(total=12)) as resp:
                 if resp.status == 200:
                     return await resp.json(content_type=None)
-                log.warning(f"[OpenF1] HTTP {resp.status}: {endpoint}")
+                if resp.status == 404:
+                    log.debug(f"[OpenF1] HTTP 404 (endpoint ej tillgänglig): {endpoint}")
+                else:
+                    log.warning(f"[OpenF1] HTTP {resp.status}: {endpoint}")
     except Exception as e:
         log.warning(f"[OpenF1] API-fel ({endpoint}): {e}")
     return []
